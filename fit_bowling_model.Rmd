@@ -33,13 +33,35 @@ get_random_players <- function(n) {
 
 ```
 
-```{r get subset}
+```{r get random subset}
 
 #faves <- c("JM Anderson", "JC Laker", "DW Steyn", "SK Warne", "Wasim Akram", "SF Barnes", "GA Lohmann")
 
 p <- 5
 
 bowling_data_sub <- bowling_data %>% filter(Player %in% get_random_players(p))
+
+```
+
+```{r stratified sample function}
+
+get_strat_sample <- function() {
+  
+  names <- c("Player", "Inns", "Opposition", "Decade", "HA", "OppEra")
+  frame <- sample_n(bowling_data, 1)
+  
+  for(variable in names) {
+    curr_col <- bowling_data[variable]
+    
+    for(val in unique(curr_col)) {
+      curr_rows <- bowling_data[curr_col == val, ]
+      frame <- frame %>% add_row(sample_n(curr_rows, 1))
+    }
+  }
+  return(frame)
+}
+
+get_strat_sample()
 
 ```
 
