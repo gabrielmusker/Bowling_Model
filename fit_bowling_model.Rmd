@@ -1,0 +1,95 @@
+---
+title: "Run Bowling Model"
+output: html_notebook
+---
+
+```{r setup}
+
+library(rstan)
+library(dplyr)
+library(readr)
+
+bowling_data <- read_csv("bowling_data_all_vars.csv") %>% mutate(Inns = as.character(Inns),
+                                                                 Year = as.character(Year),
+                                                                 Era = as.character(Era),
+                                                                 OppEra = as.character(OppEra)) %>% 
+  group_by(Player) %>% 
+  mutate(`Total Wickets` = sum(Wkts)) %>% 
+  #filter(`Total Wickets` >= 50) %>% 
+  ungroup() %>% 
+  mutate(`Mod Avg` = (Runs + 1)/(Wkts + 1))
+
+```
+
+```{r random subset function}
+
+get_random_players <- function(n) {
+  
+  names <- unique(bowling_data$Player)
+  indices <- sample(1:length(names), n)
+  return(names[indices])
+  
+}
+
+```
+
+```{r get subset}
+
+#faves <- c("JM Anderson", "JC Laker", "DW Steyn", "SK Warne", "Wasim Akram", "SF Barnes", "GA Lohmann")
+
+p <- 5
+
+bowling_data_sub <- bowling_data %>% filter(Player %in% get_random_players(p))
+
+```
+
+```{r get model matrix}
+
+players <- model.matrix( ~ Player + 0, data = bowling_data_sub)
+ha <- bowling_data_sub$HA
+inns <- model.matrix( ~ Inns, data = bowling_data_sub)[,-1]
+opposition <- model.matrix( ~ Opposition, data = bowling_data_sub)[,-1]
+decade <- model.matrix(~ Decade, data = bowling_data_sub)[,-1]
+#year <- model.matrix( ~ Year, data = bowling_data_sub)[,-1]
+oppera <- model.matrix( ~ OppEra, data = bowling_data_sub)[,-1]
+
+age <- bowling_data_sub$Age
+age2 <- age**2
+
+#age_std <- (age - mean(age))/sqrt(var(age))
+#age2_std <- (age2 - mean(age2))/sqrt(var(age2))
+
+```
+
+```{r stan modelling}
+
+bowling_model <- stan(file = "bowling_model.stan", data = list(N = dim(bowling_data_sub)[1],
+                                                               P = length(unique(bowling_data_sub$Player)),
+                                                               D = length(unique(bowling_data_sub$Decade))-1,
+                                                               I = length(unique(bowling_data_sub$Inns))-1,
+                                                               O = length(unique(bowling_data_sub$Opposition))-1,
+                                                               OE = length(unique(bowling_data_sub$OppEra))-1,
+                                                               Players = players,
+                                                               HA = ha,
+                                                               Decade = decade,
+                                                               Age = age,
+                                                               Age_squared = age2,
+                                                               Inns = inns,
+                                                               Opposition = opposition,
+                                                               OppEra = oppera,
+                                                               Runs = bowling_data_sub$Runs),
+                      cores = 4, chains = 1, 
+                      iter = 100, warmup = 50,
+                      control = list(adapt_delta=0.95, max_treedepth=15))
+
+```
+
+```{r save stanfit}
+
+saveRDS(bowling_model, "Saved Models/test.rds")
+
+```
+
+
+
+
