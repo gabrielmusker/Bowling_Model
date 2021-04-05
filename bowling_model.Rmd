@@ -1,0 +1,147 @@
+---
+title: "Bowling Model"
+output: html_notebook
+---
+
+```{r setup}
+
+library(rstan)
+library(dplyr)
+library(readr)
+
+bowling_data <- read_csv("bowling_data_all_vars.csv") %>% mutate(Inns = as.character(Inns),
+                                                                 Year = as.character(Year),
+                                                                 Era = as.character(Era),
+                                                                 OppEra = as.character(OppEra)) %>% 
+  group_by(Player) %>% 
+  mutate(`Total Wickets` = sum(Wkts)) %>% 
+  filter(`Total Wickets` >= 50) %>% 
+  ungroup() %>% 
+  mutate(`Mod Avg` = (Runs + 1)/(Wkts + 1))
+
+p <- 5 # number of players
+
+```
+
+```{r random subset function}
+
+get_random_players <- function(n) {
+  
+  names <- unique(bowling_data$Player)
+  indices <- sample(1:length(names), n)
+  return(names[indices])
+  
+}
+
+```
+
+```{r get subset}
+
+#faves <- c("JM Anderson", "JC Laker", "DW Steyn", "SK Warne", "Wasim Akram", "SF Barnes", "GA Lohmann")
+
+bowling_data_sub <- bowling_data %>% filter(Player %in% get_random_players(p))
+
+```
+
+```{r get model matrix}
+
+players <- model.matrix( ~ Player + 0, data = bowling_data_sub)
+ha <- bowling_data_sub$HA
+inns <- model.matrix( ~ Inns, data = bowling_data_sub)[,-1]
+opposition <- model.matrix( ~ Opposition, data = bowling_data_sub)[,-1]
+year <- model.matrix( ~ Year, data = bowling_data_sub)[,-1]
+oppera <- model.matrix( ~ OppEra, data = bowling_data_sub)[,-1]
+
+age <- bowling_data_sub$Age
+age2 <- age**2
+
+#age_std <- (age - mean(age))/sqrt(var(age))
+#age2_std <- (age2 - mean(age2))/sqrt(var(age2))
+
+```
+
+```{r stan modelling}
+
+bowling_model <- stan(file = "bowling_model.stan", data = list(N = dim(bowling_data_sub)[1],
+                                                               P = length(unique(bowling_data_sub$Player)),
+                                                               Y = length(unique(bowling_data_sub$Year))-1,
+                                                               I = length(unique(bowling_data_sub$Inns))-1,
+                                                               O = length(unique(bowling_data_sub$Opposition))-1,
+                                                               OE = length(unique(bowling_data_sub$OppEra))-1,
+                                                               Players = players,
+                                                               HA = ha,
+                                                               Year = year,
+                                                               Age = age,
+                                                               Age_squared = age2,
+                                                               Inns = inns,
+                                                               Opposition = opposition,
+                                                               OppEra = oppera,
+                                                               Runs = bowling_data_sub$Runs),
+                      cores = 4, chains = 1, 
+                      iter = 1200, warmup = 500,
+                      control = list(adapt_delta=0.95, max_treedepth=15))
+
+```
+
+```{r print}
+
+print(bowling_model, pars=c("theta", "zeta", "alpha1"))
+
+```
+
+```{r stuff}
+
+params_ncp80 <- as.data.frame(extract(bowling_model, permuted=FALSE))
+names(params_ncp80) <- gsub("chain:1.", "", names(params_ncp80), fixed = TRUE)
+names(params_ncp80) <- gsub("[", ".", names(params_ncp80), fixed = TRUE)
+names(params_ncp80) <- gsub("]", "", names(params_ncp80), fixed = TRUE)
+params_ncp80$iter <- 1:700
+
+par(mar = c(4, 4, 0.5, 0.5))
+plot(params_ncp80$iter, log(params_ncp80$sigma2_theta.1), pch=16, cex=0.8,
+     xlab="Iteration", ylab="log(sigma2_theta.1)", ylim=c(-6, 4))
+
+divergent <- get_sampler_params(bowling_model, inc_warmup=FALSE)[[1]][,'divergent__']
+params_ncp80$divergent <- divergent
+
+div_params_ncp <- params_ncp80[params_ncp80$divergent == 1,]
+nondiv_params_ncp <- params_ncp80[params_ncp80$divergent == 0,]
+
+par(mar = c(4, 4, 0.5, 0.5))
+plot(nondiv_params_ncp$theta.1, log(nondiv_params_ncp$sigma2_theta.1),
+     xlab="theta.1", ylab="log(sigma2_theta.1)", xlim=c(-2, 7), ylim=c(-3,2),
+     pch=16, cex=0.8)
+points(div_params_ncp$theta.1, log(div_params_ncp$sigma2_theta.1),
+       col="green", pch=16, cex=0.8)
+
+```
+
+```{r visualise mixing}
+
+stan_trace(bowling_model, pars=c("theta"))
+stan_trace(bowling_model, pars=c("mu_theta", "sigma2_theta"))
+stan_trace(bowling_model, pars=c("delta"))
+stan_trace(bowling_model, pars=c("sigma2_delta"))
+stan_trace(bowling_model, pars=c("alpha1", "alpha2"))
+stan_trace(bowling_model, pars=c("zeta", "nu"))
+stan_trace(bowling_model, pars=c("xi"))
+stan_trace(bowling_model, pars=c("omega"))
+
+```
+
+```{r visualise densities}
+
+stan_dens(bowling_model, pars=c("theta"))
+stan_dens(bowling_model, pars=c("mu_theta", "sigma2_theta"))
+stan_dens(bowling_model, pars=c("delta"))
+stan_dens(bowling_model, pars=c("sigma2_delta"))
+stan_dens(bowling_model, pars=c("alpha1", "alpha2"))
+stan_dens(bowling_model, pars=c("zeta", "nu"))
+stan_dens(bowling_model, pars=c("xi"))
+stan_dens(bowling_model, pars=c("omega"))
+
+```
+
+
+
+
