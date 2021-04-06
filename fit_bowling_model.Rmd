@@ -49,19 +49,21 @@ get_strat_sample <- function() {
   
   names <- c("Player", "Inns", "Opposition", "Decade", "HA", "OppEra")
   frame <- sample_n(bowling_data, 1)
+  frame <- frame[-c(1), ]
   
   for(variable in names) {
     curr_col <- bowling_data[variable]
+    curr_col_un <- unique(curr_col)
     
-    for(val in unique(curr_col)) {
-      curr_rows <- bowling_data[curr_col == val, ]
+    for(i in 1:(dim(curr_col_un)[1])) {
+      curr_rows <- bowling_data[curr_col == as.character(curr_col_un[i, ]), ]
       frame <- frame %>% add_row(sample_n(curr_rows, 1))
     }
   }
   return(frame)
 }
 
-get_strat_sample()
+bowling_data_sub_strat <- get_strat_sample()
 
 ```
 
