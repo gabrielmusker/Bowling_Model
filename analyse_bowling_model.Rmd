@@ -5,7 +5,7 @@ output: html_notebook
 
 ```{r get model}
 
-filename <- "Saved Models/RC_1200it_4ch_449obs.rds"
+filename <- "Saved Models/RC_400it_2ch_466obs.rds"
 
 current_model <- readRDS(filename)
 
@@ -19,7 +19,7 @@ current_model %>% print(pars=c("theta", "delta", "alpha1", "alpha2", "nu", "xi",
 
 ```{r print2}
 
-current_model %>% summary() %>% .$summary %>% .[, "n_eff"] %>% sort() %>% .[1:10]
+current_model %>% summary() %>% .$summary %>% .[, "n_eff"] %>% sort() %>% .[1:100]
 
 ```
 

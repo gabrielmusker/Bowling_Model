@@ -67,6 +67,12 @@ bowling_data_sub_strat <- get_strat_sample()
 
 ```
 
+```{r set sub}
+
+bowling_data_sub <- bowling_data_sub_strat
+
+```
+
 ```{r get model matrix}
 
 players <- model.matrix( ~ Player + 0, data = bowling_data_sub)
@@ -102,15 +108,15 @@ bowling_model <- stan(file = "bowling_model.stan", data = list(N = dim(bowling_d
                                                                Opposition = opposition,
                                                                OppEra = oppera,
                                                                Runs = bowling_data_sub$Runs),
-                      cores = 4, chains = 1, 
-                      iter = 100, warmup = 50,
+                      cores = 4, chains = 4, 
+                      iter = 400, warmup = 200,
                       control = list(adapt_delta=0.95, max_treedepth=15))
 
 ```
 
 ```{r save stanfit}
 
-saveRDS(bowling_model, "Saved Models/test.rds")
+saveRDS(bowling_model, "Saved Models/RC_strat_sub_400it_4ch_2307obs.rds")
 
 ```
 
